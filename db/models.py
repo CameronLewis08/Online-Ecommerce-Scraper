@@ -36,6 +36,6 @@ class ScrapeState(Base):
     __tablename__ = "scrape_state"
 
     scrapestate_id: Mapped[int] = mapped_column(primary_key=True)
-    last_scraped_page: Mapped[int|None] = mapped_column(Integer)
+    last_scraped_page: Mapped[str | None] = mapped_column(String(255))
     last_scraped_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
