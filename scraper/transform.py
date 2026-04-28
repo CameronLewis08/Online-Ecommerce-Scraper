@@ -15,11 +15,26 @@ class BookModel(BaseModel):
     url: str
     availability: str
 
-    # TODO: add a @field_validator for 'rating' that converts word strings to ints
-    # e.g. "Three" -> 3. Raise ValueError if the word is not in RATING_WORDS.
+    @field_validator("rating", mode="before")
+    def validate_rating(cls, rating):
+        if isinstance(rating, int):
+            return rating
+        if isinstance(rating, str):
+            if rating in RATING_WORDS:
+                return RATING_WORDS[rating]
+            raise ValueError(f"Invalid rating word: {rating}")
+        raise ValueError(f"Rating must be an int or a valid rating word, got {type(rating)}")
 
-    # TODO: add a @field_validator for 'price' that strips the '£' symbol
-    # and converts to Decimal. Raise ValueError if conversion fails.
+    @field_validator("price", mode="before")
+    def validate_price(cls, price):
+        if isinstance(price, Decimal):
+            return price
+        if isinstance(price, str):
+            try:
+                return Decimal(price.replace("£", "").strip())
+            except InvalidOperation:
+                raise ValueError(f"Invalid price format: {price}")
+        raise ValueError(f"Price must be a Decimal or a string, got {type(price)}")
 
 
 def transform(raw_books: list[dict]) -> tuple[list[BookModel], int]:
@@ -33,9 +48,12 @@ def transform(raw_books: list[dict]) -> tuple[list[BookModel], int]:
     skipped = 0
 
     for raw in raw_books:
-        # TODO: attempt to parse raw dict into BookModel
-        # On ValidationError: log a WARNING with the raw data and error, increment skipped
-        pass
+        try:
+            valid.append(BookModel(**raw))
+        except ValidationError as e:
+            logger.warning(f"Skipping invalid book data: {raw} - Error: {e}")
+            skipped += 1
 
     logger.info(f"Transform complete. {len(valid)} valid, {skipped} skipped.")
     return valid, skipped
+
