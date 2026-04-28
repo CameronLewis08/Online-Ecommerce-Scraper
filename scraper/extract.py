@@ -8,8 +8,6 @@ from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
-RATING_WORDS = {"One": 1, "Two": 2, "Three": 3, "Four": 4, "Five": 5}
-
 
 def get_categories() -> list[dict]:
     """Read the categories from the database. Returns a list of category dictionaries."""
@@ -101,8 +99,3 @@ def extract() -> list[dict]:
 
     logger.info(f"Extraction complete. {len(all_books)} raw records collected.")
     return all_books
-
-if __name__ == "__main__":
-    import json
-    books = extract()
-    print(json.dumps(books[:3], indent=2))   # print first 3 books as formatted JSON
