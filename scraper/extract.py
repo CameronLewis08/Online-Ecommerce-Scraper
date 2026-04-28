@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 from config.settings import settings
 from urllib.parse import urljoin
 
+from db.connection import get_session
+from db.models import ScrapeState
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +29,18 @@ def get_categories() -> list[dict]:
 
     return categories
 
+def get_last_scraped_page() -> tuple[str | None, int]:
+    """
+    Read the watermark from scrape_state.
+    Returns (last_category, last_page) or (None, 1) if no state exists.
+    """
+    with get_session() as session:
+        state = session.query(ScrapeState).first()
+        if state is None or state.last_scraped_page is None:
+            return None, 1
 
+        category, page = state.last_scraped_page.split(":")
+        return category, int(page)
 
 def scrape_category_page(category: str, category_url: str, page: int) -> tuple[list[dict], bool]:
     """Fetch one page of books and return a list of raw dicts."""
@@ -51,7 +65,7 @@ def scrape_category_page(category: str, category_url: str, page: int) -> tuple[l
 
     ol = soup.find("ol", class_="row")
     if not ol:
-        return []
+        return [], False
 
     books = []
 
@@ -84,8 +98,19 @@ def extract() -> list[dict]:
     categories = get_categories()
     all_books = []
 
+    last_category, last_page = get_last_scraped_page()
+    found_resume_point = last_category is None
+
     for cat in categories:
-        page = 1
+        if not found_resume_point:
+            if cat["name"] != last_category:
+                continue            # skip categories before the resume point
+            found_resume_point = True
+            start_page = last_page + 1  # resume from the next page
+        else:
+            start_page = 1
+
+        page = start_page
         while True:
             books, has_next = scrape_category_page(cat["name"], cat["url"], page)
             all_books.extend(books)
