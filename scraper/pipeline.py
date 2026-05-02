@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 from datetime import datetime, timezone
+
 from config.settings import settings
 from db.connection import get_session
 from db.models import PipelineRun
@@ -12,45 +13,65 @@ logger = logging.getLogger(__name__)
 
 
 def setup_logging() -> None:
-    """Configure logging to stdout and a rotating file."""
-    # TODO: create a formatter with timestamp, level, and message
-    # TODO: add a StreamHandler (stdout) at INFO level
-    # TODO: add a RotatingFileHandler pointed at settings.log_file
-    #       with maxBytes=settings.log_max_bytes, backupCount=settings.log_backup_count
-    # TODO: attach both handlers to the root logger
-    pass
+    root_logger = logging.getLogger()
+    if root_logger.handlers:        # already configured — don't add duplicates
+        return
+    
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(formatter)
+    
+    file_handler = logging.handlers.RotatingFileHandler(
+        settings.log_file, maxBytes=settings.log_max_bytes, backupCount=settings.log_backup_count
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)          # ← missing
+    
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(stream_handler)        # ← missing
+    root_logger.addHandler(file_handler)          # ← missing 
+
 
 
 def run() -> None:
-    """Execute one full ETL run and record the result in pipeline_runs."""
-    session = get_session()
-    run_record = PipelineRun(started_at=datetime.now(timezone.utc), status="running")
 
-    # TODO: add run_record to session and commit to get its ID
+    # Insert the initial run record and get its ID
+    with get_session() as session:
+        run_record = PipelineRun(started_at=datetime.now(timezone.utc), status="running")
+        session.add(run_record)
+        session.commit()
+        run_id = run_record.pipelinerun_id      # save the ID before session closes
 
-    rows_extracted = 0
-    rows_loaded = 0
-    rows_skipped = 0
+    rows_extracted = rows_loaded = rows_skipped = 0
 
     try:
-        raw_books = extract()
+        raw_books, last_category, last_page = extract()
         rows_extracted = len(raw_books)
 
         valid_books, rows_skipped = transform(raw_books)
 
-        # TODO: get last_page from scrape_state so load() can update the watermark
-        last_page = 1
+        rows_loaded = load(valid_books, last_category, last_page)
 
-        rows_loaded = load(valid_books, last_page)
+        with get_session() as session:
+            record = session.get(PipelineRun, run_id)
+            record.status = "success"
+            record.completed_at = datetime.now(timezone.utc)
+            record.rows_extracted = rows_extracted
+            record.rows_loaded = rows_loaded
+            record.rows_skipped = rows_skipped
+            session.commit()
 
-        # TODO: update run_record: status='success', completed_at, all row counts
-        session.commit()
         logger.info(f"Pipeline complete. Extracted={rows_extracted}, Loaded={rows_loaded}, Skipped={rows_skipped}")
 
     except Exception as e:
-        # TODO: update run_record: status='failed', completed_at, error_message=str(e)
-        session.commit()
-        logger.error(f"Pipeline failed: {e}", exc_info=True)
+        with get_session() as session:
+            record = session.get(PipelineRun, run_id)
+            record.status = "failed"
+            record.completed_at = datetime.now(timezone.utc)
+            record.error_message = str(e)
+            session.commit()
 
-    finally:
-        session.close()
+        logger.error(f"Pipeline failed: {e}", exc_info=True)

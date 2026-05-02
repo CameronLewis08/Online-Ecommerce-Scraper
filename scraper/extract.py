@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def get_categories() -> list[dict]:
     """Read the categories from the database. Returns a list of category dictionaries."""
-    # TODO: query categories from the database and return a list of category dicts
+    
     response = requests.get("https://books.toscrape.com/catalogue/category/books_1/", headers={"User-Agent": "EcommerceETL-Portfolio/1.0 (educational project)"})
     response.raise_for_status()
     soup = BeautifulSoup(response.content, "html.parser")
@@ -44,13 +44,7 @@ def get_last_scraped_page() -> tuple[str | None, int]:
 
 def scrape_category_page(category: str, category_url: str, page: int) -> tuple[list[dict], bool]:
     """Fetch one page of books and return a list of raw dicts."""
-    # TODO:
-    # 1. Build the URL for the given page number
-    # 2. GET the page with a descriptive User-Agent header
-    # 3. Parse HTML with BeautifulSoup
-    # 4. Find all book elements and extract: title, rating, price, category, url, availability
-    # 5. Return a list of raw dicts (do NOT validate here — that is Transform's job)
-
+    
     if page == 1:
         url = category_url                                        
     else:
@@ -60,6 +54,10 @@ def scrape_category_page(category: str, category_url: str, page: int) -> tuple[l
         url,
         headers={"User-Agent": "EcommerceETL-Portfolio/1.0 (educational project)"}
     )
+
+    if response.status_code == 404:
+        return [], False
+
     response.raise_for_status()
     soup = BeautifulSoup(response.content, "html.parser")
 
@@ -94,9 +92,12 @@ def scrape_category_page(category: str, category_url: str, page: int) -> tuple[l
 
 
 
-def extract() -> list[dict]:
+def extract() -> tuple[list[dict], str | None, int]:
     categories = get_categories()
     all_books = []
+
+    last_cat_scraped = None
+    last_page_scraped = 1
 
     last_category, last_page = get_last_scraped_page()
     found_resume_point = last_category is None
@@ -115,12 +116,16 @@ def extract() -> list[dict]:
             books, has_next = scrape_category_page(cat["name"], cat["url"], page)
             all_books.extend(books)
             logger.info(f"  Page {page} — {len(books)} books")
-            
+
+            last_cat_scraped = cat["name"]   # update on each successful page
+            last_page_scraped = page
+
             if not has_next or not books:
                 break                    # stop before requesting a page that doesn't exist
             
             time.sleep(settings.request_delay_seconds)
             page += 1
+            
 
     logger.info(f"Extraction complete. {len(all_books)} raw records collected.")
-    return all_books
+    return all_books, last_cat_scraped, last_page_scraped

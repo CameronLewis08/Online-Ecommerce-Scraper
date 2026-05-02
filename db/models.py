@@ -12,7 +12,7 @@ class Book(Base):
     __tablename__ = "books"
 
     book_id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(128))
+    title: Mapped[str] = mapped_column(String(255))
     rating: Mapped[int] = mapped_column(Integer)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     category: Mapped[str] = mapped_column(String(128))

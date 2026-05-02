@@ -14,37 +14,57 @@ VALID_RAW = {
 
 class TestRatingConversion:
     def test_word_to_int(self):
-        # TODO: assert that "Three" becomes 3
-        pass
+        
+        book = BookModel(**VALID_RAW)
+        assert book.rating == 3
 
     def test_all_rating_words(self):
-        # TODO: parametrize or loop through One→1, Two→2, Three→3, Four→4, Five→5
-        pass
+        
+        for word, expected in [("One", 1), ("Two", 2), ("Three", 3), ("Four", 4), ("Five", 5)]:
+            raw = VALID_RAW.copy()
+            raw["rating"] = word
+            book = BookModel(**raw)
+            assert book.rating == expected
 
     def test_invalid_rating_is_skipped(self):
-        # TODO: pass a raw dict with rating="Six", assert skipped=1 and valid=[]
-        pass
+        
+        raw = {**VALID_RAW, "rating": "Six"}
+        valid, skipped = transform([raw])
+        assert skipped == 1
+        assert valid == []
 
 
 class TestPriceConversion:
     def test_strips_currency_symbol(self):
-        # TODO: assert that "£51.77" becomes Decimal("51.77")
-        pass
+        
+        book = BookModel(**VALID_RAW)
+        assert book.price == Decimal("51.77")
 
     def test_invalid_price_is_skipped(self):
-        # TODO: pass a raw dict with price="not-a-price", assert skipped=1
-        pass
+        
+        raw = {**VALID_RAW, "price": "not-a-price"}
+        valid, skipped = transform([raw])
+        assert skipped == 1
+        assert valid == []
 
 
 class TestTransformFunction:
     def test_valid_row_returns_model(self):
-        # TODO: call transform([VALID_RAW]) and assert len(valid)==1, skipped==0
-        pass
-
+        
+        valid, skipped = transform([VALID_RAW])
+        assert len(valid) == 1
+        assert skipped == 0
+        
     def test_empty_input_returns_empty(self):
-        # TODO: call transform([]) and assert valid==[], skipped==0
-        pass
+        
+        valid, skipped = transform([])
+        assert valid == []
+        assert skipped == 0
+
 
     def test_mixed_valid_invalid_counts_correctly(self):
-        # TODO: pass one valid and one invalid raw dict, assert valid==1, skipped==1
-        pass
+        
+        invalid_raw = {**VALID_RAW, "rating": "Six", "url": "https://example.com/other"}  # also change URL to avoid duplicate key if both valid and invalid are transformed
+        valid, skipped = transform([VALID_RAW, invalid_raw])
+        assert len(valid) == 1
+        assert skipped == 1

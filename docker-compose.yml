@@ -21,7 +21,9 @@ services:
       postgres:
         condition: service_healthy
     env_file:
-      - .env
+      - .env                          # loads everything else from .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-etluser}:${POSTGRES_PASSWORD:-etlpassword}@postgres:5432/ecommerce_etl
     volumes:
       - ./logs:/app/logs
 
