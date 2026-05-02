@@ -105,7 +105,7 @@ All configuration is read from `.env` (copy `.env.example` to get started):
 
 | Variable | Default | Description |
 |---|---|---|
-| `DATABASE_URL` | — | PostgreSQL connection string |
+| `DATABASE_URL` | `postgresql://DB_USERNAME:DB_PASSWORD@localhost:5432/ecommerce_etl` | PostgreSQL connection string |
 | `SCRAPE_INTERVAL_MINUTES` | `60` | How often the pipeline runs |
 | `REQUEST_DELAY_SECONDS` | `1.0` | Delay between page requests |
 | `LOG_FILE` | `logs/pipeline.log` | Log file path |
