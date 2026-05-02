@@ -38,7 +38,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Create database tables
-        run: python db/connection.py
+        run: python -m db.connection
 
       - name: Run tests
         run: pytest
